@@ -9,7 +9,7 @@ static inline double get_stamp(const geometry_msgs::TransformStamped &ts)
 
 static geometry_msgs::TransformStamped dummy;
 
-//#define SEND_UNKNOWN_FAR_AWAY
+#define SEND_UNKNOWN_FAR_AWAY
 #ifdef SEND_UNKNOWN_FAR_AWAY
 static geometry_msgs::TransformStamped far_away;
 #endif
