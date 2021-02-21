@@ -147,7 +147,7 @@ data_vis_(Identitier, Type, _{
   xlabel:   [string,''],
   ylabel:   [string,''],
   width:    [int32,200],
-  height:   [int32,260],
+  height:   [int32,310],
   fontsize: [string,'12px'],
   values:   ['array(data_vis_msgs/ValueList)',[]]
 }).
