@@ -117,11 +117,9 @@ void TFMemory::loadTF_internal(tf::tfMessage &tf_msg, int buffer_index)
 			it!=managed_frames_[buffer_index].end(); ++it)
 	{
 		const std::string &name = *it;
-		std::cout << "START " << name << std::endl;
 		std::map<std::string, geometry_msgs::TransformStamped>::iterator
 			needle = transforms_[buffer_index].find(name);
 		if(needle != transforms_[buffer_index].end()) {
-			std::cout << "NOT SEND AWAY " << name << std::endl;
 			geometry_msgs::TransformStamped &tf_transform = needle->second;
 			tf_transform.header.stamp = time;
 			tf_msg.transforms.push_back(tf_transform);
@@ -131,7 +129,6 @@ void TFMemory::loadTF_internal(tf::tfMessage &tf_msg, int buffer_index)
             geometry_msgs::TransformStamped tf_transform = far_away;
             tf_transform.header.stamp = time;
             tf_transform.child_frame_id = name;
-            std::cout << "SEND AWAY " << name << std::endl;
             tf_msg.transforms.push_back(tf_transform);
         }
 #endif
