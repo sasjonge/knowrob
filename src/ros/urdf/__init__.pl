@@ -1,3 +1,5 @@
 
 :- use_module('URDF').
-:- urdf_init.
+:- ( setting(mng_client:read_only, true)
+	->	true
+	;	urdf_init).

@@ -584,5 +584,8 @@ initialize_one_db :-
 	]).
 
 % make sure collection "one" has a document
-:- initialize_one_db.
+:- ( setting(mng_client:read_only, true)
+	->	true
+	;	initialize_one_db).
+
 
