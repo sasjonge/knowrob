@@ -545,8 +545,8 @@ kb_add_rule(Head, Body) :-
 	%             for implicit instantiation.
 	(	expand_arguments(Args, ExpandedArgs, ArgsGoal)
 	->	(	(	is_list(Expanded)
-			->	Expanded0=[ArgsGoal|Expanded]
-			;	Expanded0=[ArgsGoal,Expanded]
+			->	append(Expanded,ArgsGoal,Expanded0)
+			;	Expanded0=[Expanded|ArgsGoal]
 			),
 			Args0=ExpandedArgs
 		)
@@ -572,10 +572,14 @@ kb_drop_rule(Head) :-
 	retractall(kb_rule(Functor, _, _)).
 
 %%
-expand_arguments(Args, Expanded, pragma(=(Values,Vars))) :-
+expand_arguments(Args, Expanded, VarValuePairs) :-
 	expand_arguments1(Args, Expanded, Pairs),
 	Pairs \= [],
-	pairs_keys_values(Pairs, Values, Vars).
+	bagof(
+		=(Var,Value),
+		member(Value-Var,Pairs),
+		VarValuePairs
+	).
 
 
 expand_arguments1([], [], []) :- !.
