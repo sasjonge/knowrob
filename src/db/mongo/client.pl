@@ -29,11 +29,13 @@
       mng_get_dict/3,
       mng_query_value/2,
       mng_typed_value/2,
+      mng_unflatten/2,
       mng_strip/4,
       mng_strip_type/3,
       mng_strip_operator/3,
       mng_strip_variable/2,
-      mng_operator/2
+      mng_operator/2,
+      mng_uri/1
     ]).
 /** <module> A mongo DB client for Prolog.
 
@@ -57,13 +59,14 @@ To this end, Prolog datastructures are translated from and into BSON format.
 % define some settings
 :- setting(db_name, atom, roslog,
 	'Name of the Mongo DB used by KnowRob.').
-:- setting(mng_client:collection_prefix, atom, '',
+:- setting(collection_prefix, atom, '',
 	'ID of the current neem. Empty if neemhub is not used').
-:- setting(mng_client:read_only, atom, false,
+:- setting(read_only, atom, false,
 	'Flag if the tripledb is read only').
 
 :- setting(mng_client:db_name, DBName),
-   assertz(mng_db_name(DBName)).
+   assertz(mng_db_name(DBName)),
+   log_info(mng_db_name(DBName)).
 
 %% mng_db_name(-DB) is det
 %
@@ -334,9 +337,10 @@ mng_doc_value(PlValue,PlValue).
 % @param DB the database name
 % @param Directory absolute path to output directory
 %
-mng_dump(DB,Directory) :-
+mng_dump(DB,Dir) :-
+	mng_uri(URI),
 	process_create(path(mongodump),
-		[ '--db', DB, '--out', Directory ],
+		[ '--uri', URI, '--db', DB, '--out', Dir ],
 		[ process(PID) ]
 	),
 	wait(PID,exited(0)).
@@ -365,9 +369,10 @@ mng_dump_collection(DB,Collection,Directory) :-
 % @param DB the database name
 % @param Directory absolute path to output directory
 %
-mng_restore(_DB,Directory) :-
+mng_restore(_DB,Dir) :-
+	mng_uri(URI),
 	process_create(path(mongorestore),
-		[ Directory ],
+		[ '--uri', URI, '--dir', Dir ],
 		[ process(PID) ]
 	),
 	wait(PID,exited(0)).
@@ -426,6 +431,40 @@ term_document(Term, [
 	maplist([Arg,Doc]>>
 		mng_query_value(Arg, ['$eq', Doc]),
 		Args, ArgDocs).
+
+%% mng_unflatten(+Flat, -Nested) is det.
+%
+% Translates a flattened document into a nested one.
+% Flattened documents may contain nested keys that contain
+% a '.'. These are translated into a nested structure instead.
+% For example: `mng_unflatten(['a.b',1], [a,[b,1]])`.
+%
+%
+mng_unflatten(Flat, Nested) :-
+	mng_unflatten(Flat, [], Nested).
+
+mng_unflatten([], Nested, Nested) :- !.
+mng_unflatten([X|Xs], NestedIn, NestedOut) :-
+	unflatten_entry(X, NestedX),
+	mng_unflatten1(NestedX, NestedIn, Nested0),
+	mng_unflatten(Xs, Nested0, NestedOut).
+
+mng_unflatten1([[Key,Rest]], NestedIn,
+		[[Key,NestedKey]|NestedRest]) :-
+	is_list(Rest),
+	select([Key,Ys0], NestedIn, NestedRest),
+	mng_unflatten1(Rest, Ys0, NestedKey),
+	!.
+mng_unflatten1(X, NestedIn, NestedOut) :-
+	append(X, NestedIn, NestedOut).
+
+%%
+unflatten_entry([Path,Value], Nested) :-
+	atomic_list_concat(Keys, '.', Path),
+	unflatten_entry(Keys, Value, Nested).
+unflatten_entry([], Value, Value) :- !.
+unflatten_entry([X|Xs], Value, [[X,Rest]]) :-
+	unflatten_entry(Xs, Value, Rest).
 
 %% mng_typed_value(+Term, -TypedValue) is det.
 %
@@ -574,6 +613,21 @@ mng_strip_operator(    X,    =, X) :- !.
 %
 mng_strip_variable(X->_,X) :- nonvar(X), !.
 mng_strip_variable(X,X) :- !.
+
+%% mng_uri(-URI) is det.
+%
+% Get the URI connection string
+%
+mng_uri(URI) :-
+  getenv('KNOWROB_MONGO_HOST', Host),
+  getenv('KNOWROB_MONGO_USER', User),
+  getenv('KNOWROB_MONGO_PASS', Pass),
+  getenv('KNOWROB_MONGO_PORT', Port),
+  atomic_list_concat([ 'mongodb://', User, ':', Pass,
+    '@', Host, ':', Port ], URI),
+  !.
+
+mng_uri('mongodb://localhost:27017').
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %

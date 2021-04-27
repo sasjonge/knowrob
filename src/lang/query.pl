@@ -1,20 +1,28 @@
 :- module(lang_query,
-    [ ask(t),        % +Statement
-      ask(t,t,t),    % +Statement, +QScope, -FScope
-      ask(t,t,t,t),  % +Statement, +QScope, -FScope, +Options
-      tell(t),       % +Statement
-      tell(t,t),     % +Statement, +Scope
-      tell(t,t,t),   % +Statement, +Scope, +Options
-      forget(t),     % +Statement
-      forget(t,t),   % +Statement, +Scope
-      forget(t,t,t), % +Statement, +Scope, +Options
+    [ kb_call(t),             % +Goal
+      kb_call(t,t,t),         % +Goal, +QScope, -FScope
+      kb_call(t,t,t,t),       % +Goal, +QScope, -FScope, +Options
+      kb_project(t),          % +Goal
+      kb_project(t,t),        % +Goal, +Scope
+      kb_project(t,t,t),      % +Goal, +Scope, +Options
+      kb_unproject(t),        % +Goal
+      kb_unproject(t,t),      % +Goal, +Scope
+      kb_unproject(t,t,t),    % +Goal, +Scope, +Options
       kb_add_rule(t,t),
       kb_drop_rule(t),
       kb_expand(t,-),
       is_callable_with(?,t),  % ?Backend, :Goal
       call_with(?,t,+)        % +Backend, :Goal, +Options
     ]).
-/** <module> Main interface predicates for querying the knowledge base.
+/** <module> Query aggregation.
+
+The KnowRob query language supports logic programming syntax.
+However, language expressions are potentially compiled by KnowRob into other
+formats such as mongo DB queries in order to combine
+different backends for query answering.
+KnowRob orchestrates this process through a pipeline of query steps
+where different steps are linked with each other by feeding groundings of
+one step into the input queue of the next step.
 
 @author Daniel Beßler
 @license BSD
@@ -24,6 +32,7 @@
 :- op(1100, xfx, user:(+>)).
 :- op(1100, xfx, user:(?+>)).
 
+:- use_module(library(settings)).
 :- use_module(library('semweb/rdf_db'),
 	[ rdf_global_term/2 ]).
 :- use_module('scope',
@@ -49,27 +58,27 @@
 query_thread_pool('lang_query:queries').
 backend_thread_pool('lang_query:backends').
 
-%% ask(+Statement) is nondet.
+%% kb_call(+Statement) is nondet.
 %
-% Same as ask/3 with default scope to include
+% Same as kb_call/3 with default scope to include
 % only facts that hold now.
 %
 % @param Statement a statement term.
 %
-ask(Statement) :-
+kb_call(Statement) :-
 	current_scope(QScope),
-	ask(Statement, QScope, _, []).
+	kb_call(Statement, QScope, _, []).
 
-%% ask(+Statement, +QScope, -FScope) is nondet.
+%% kb_call(+Statement, +QScope, -FScope) is nondet.
 %
-% Same as ask/4 with empty options list.
+% Same as kb_call/4 with empty options list.
 %
 % @param Statement a statement term.
 %
-ask(Statement, QScope, FScope) :-
-	ask(Statement, QScope, FScope, []).
+kb_call(Statement, QScope, FScope) :-
+	kb_call(Statement, QScope, FScope, []).
 
-%% ask(+Statement, +QScope, -FScope, +Options) is nondet.
+%% kb_call(+Statement, +QScope, -FScope, +Options) is nondet.
 %
 % True if Statement holds within QScope.
 % Statement can also be a list of statements.
@@ -88,25 +97,25 @@ ask(Statement, QScope, FScope) :-
 % @param FScope the actual scope.
 % @param Options list of options.
 %
-ask(Statements, QScope, FScope, Options) :-
+kb_call(Statements, QScope, FScope, Options) :-
 	is_list(Statements),
 	!,
 	comma_list(Goal, Statements),
-	ask(Goal, QScope, FScope, Options).
+	kb_call(Goal, QScope, FScope, Options).
 
-ask(Statement, QScope, FScope, Options) :-
+kb_call(Statement, QScope, FScope, Options) :-
 	% grounded statements have no variables
 	% in this case we can limit to one solution here
 	ground(Statement),
 	!,
-	once(ask1(Statement, QScope, FScope, Options)).
+	once(kb_call1(Statement, QScope, FScope, Options)).
 
-ask(Statement, QScope, FScope, Options) :-
+kb_call(Statement, QScope, FScope, Options) :-
 	%\+ ground(Statement),
-	ask1(Statement, QScope, FScope, Options).
+	kb_call1(Statement, QScope, FScope, Options).
 
 %%
-ask1(Goal, QScope, FScope, Options) :-
+kb_call1(Goal, QScope, FScope, Options) :-
 	option(fields(Fields), Options, []),
 	merge_options(
 		[ scope(QScope),
@@ -117,10 +126,10 @@ ask1(Goal, QScope, FScope, Options) :-
 	kb_expand(Goal, Expanded),
 	% FIXME: not so nice that flattening is needed here
 	flatten(Expanded, Flattened),
-	ask1(Flattened, Options1).
+	kb_call1(Flattened, Options1).
 
 %%
-ask1(SubGoals, Options) :-
+kb_call1(SubGoals, Options) :-
 	% create a list of step(SubGoal, OutQueue, Channels) terms
 	maplist([SubGoal,Step]>>
 		query_step(SubGoal,Step),
@@ -144,29 +153,29 @@ ask1(SubGoals, Options) :-
 	).
 
 
-%% tell(+Statement) is nondet.
+%% kb_project(+Statement) is nondet.
 %
-% Same as tell/2 with universal scope.
+% Same as kb_project/2 with universal scope.
 %
 % @param Statement a statement term.
 %
-tell(Statement) :-
+kb_project(Statement) :-
 	universal_scope(Scope),
-	tell(Statement, Scope, []).
+	kb_project(Statement, Scope, []).
 
-%% tell(+Statement, +Scope) is nondet.
+%% kb_project(+Statement, +Scope) is nondet.
 %
-% Same as tell/3 with empty options list.
+% Same as kb_project/3 with empty options list.
 %
 % @param Statement a statement term.
 % @param Scope the scope of the statement.
 %
-tell(Statement, Scope) :-
-	tell(Statement, Scope, []).
+kb_project(Statement, Scope) :-
+	kb_project(Statement, Scope, []).
 
-%% tell(+Statement, +Scope, +Options) is semidet.
+%% kb_project(+Statement, +Scope, +Options) is semidet.
 %
-% Tell the knowledge base that some statement is true.
+% Assert that some statement is true.
 % Scope is the scope of the statement being true.
 % Statement can also be a list of statements. Options include:
 %
@@ -179,48 +188,48 @@ tell(Statement, Scope) :-
 % @param Scope the scope of the statement.
 % @param Options list of options.
 %
-tell(Statements, Scope, Options) :-
+kb_project(Statements, Scope, Options) :-
 	is_list(Statements),
 	!,
 	comma_list(Statement, Statements),
-	tell(Statement, Scope, Options).
+	kb_project(Statement, Scope, Options).
 
-tell(Statement, Scope, Options) :-
+kb_project(Statement, Scope, Options) :-
 	% ensure there is a graph option
 	set_graph_option(Options, Options0),
 	% compile and call statement
 	(	setting(mng_client:read_only, true)
-	->	log_warning(db(read_only(tell)))
+	->	log_warning(db(read_only(projection)))
 	;	mongolog_call(project(Statement), [scope(Scope)|Options0])
 	).
 
 
-%% forget(+Statement) is nondet.
+%% kb_unproject(+Statement) is nondet.
 %
-% Same as forget/2 with universal scope.
+% Same as kb_unproject/2 with universal scope.
 %
 % @param Statement a statement term.
 %
-forget(Statement) :-
+kb_unproject(Statement) :-
 	wildcard_scope(Scope),
-	forget(Statement, Scope, []).
+	kb_unproject(Statement, Scope, []).
 
-%% forget(+Statement, +Scope) is nondet.
+%% kb_unproject(+Statement, +Scope) is nondet.
 %
-% Same as forget/3 with empty options list.
+% Same as kb_unproject/3 with empty options list.
 %
 % @param Statement a statement term.
 % @param Scope the scope of the statement.
 %
-forget(Statement, Scope) :-
-	forget(Statement, Scope, []).
+kb_unproject(Statement, Scope) :-
+	kb_unproject(Statement, Scope, []).
 
-%% forget(+Statement, +Scope, +Options) is semidet.
+%% kb_unproject(+Statement, +Scope, +Options) is semidet.
 %
-% Forget that some statement is true.
+% Unproject that some statement is true.
 % Statement must be a term triple/3. 
 % It can also be a list of such terms.
-% Scope is the scope of the statement to forget. Options include:
+% Scope is the scope of the statement to unproject. Options include:
 %
 %     - graph(GraphName)
 %     Determines the named graph this query is restricted to. Note that graphs are organized hierarchically. Default is user.
@@ -231,19 +240,19 @@ forget(Statement, Scope) :-
 % @param Scope the scope of the statement.
 % @param Options list of options.
 %
-forget(_, _, _) :-
+kb_unproject(_, _, _) :-
 	setting(mng_client:read_only, true),
 	!.
 
-forget(Statements, Scope, Options) :-
+kb_unproject(Statements, Scope, Options) :-
 	is_list(Statements),
 	!,
 	forall(
 		member(Statement, Statements),
-		forget(Statement, Scope, Options)
+		kb_unproject(Statement, Scope, Options)
 	).
 
-forget(triple(S,P,O), Scope, Options) :-
+kb_unproject(triple(S,P,O), Scope, Options) :-
 	% TODO: support other language terms too
 	%	- rather map to kb_call(retractall(Term)) or kb_call(unproject(Term))
 	% ensure there is a graph option
@@ -407,7 +416,7 @@ connect_steps(LastStep, ThisStep, ThisStep, Options) :-
 	worker_pool_start_work(Pool, OutQueue,
 		lang_query:connect_steps(LastStep, ThisStep)).
 
-% send all outeput messages of LastStep to all input queues of ThisStep
+% send all output messages of LastStep to all input queues of ThisStep
 connect_steps(LastStep, ThisStep) :-
 	step_output(LastStep, OutQueue),
 	catch(
@@ -524,9 +533,9 @@ is_callable_with(mongolog, Goal) :- is_mongolog_predicate(Goal).
 %
 % Register a rule that translates into an aggregation pipeline.
 % Any non-terminal predicate in Body must have a previously asserted
-% mongolog rule it can expand into.
+% rule it can expand into.
 % After being asserted, the Head predicate can be referred to in
-% calls of mongolog_call/1.
+% calls of kb_call/1.
 %
 % @param Head The head of a rule.
 % @param Body The body of a rule.
@@ -716,13 +725,13 @@ has_list_head([_|_]).
 
 
 %%
-% Term expansion for *ask* rules using the (?>) operator.
+% Term expansion for *querying* rules using the (?>) operator.
 % The body is rewritten such that mng_ask is called instead
 % with body as argument.
 %
 user:term_expansion(
 		(?>(Head,Body)),
-		(:-(HeadGlobal, lang_query:ask1(BodyGlobal, QScope, _FScope, [])))) :-
+		(:-(HeadGlobal, lang_query:kb_call1(BodyGlobal, QScope, _FScope, [])))) :-
 	% expand rdf terms Prefix:Local to IRI atom
 	rdf_global_term(Head, HeadGlobal),
 	rdf_global_term(Body, BodyGlobal),
@@ -732,7 +741,7 @@ user:term_expansion(
 	kb_add_rule(Term, BodyGlobal).
 
 %%
-% Term expansion for *tell* rules using the (+>) operator.
+% Term expansion for *project* rules using the (+>) operator.
 % The rules are only asserted into mongo DB and expanded into
 % empty list.
 %
@@ -753,7 +762,7 @@ user:term_expansion(
 	kb_add_rule(Term0, project(BodyGlobal)).
 
 %%
-% Term expansion for *tell-ask* rules using the (?+>) operator.
+% Term expansion for *query+project* rules using the (?+>) operator.
 % These are basically clauses that can be used in both contexts.
 %
 % Consider for example following rule:
@@ -762,7 +771,7 @@ user:term_expansion(
 %       has_type(Entity, dul:'Event').
 %
 % This is valid because, in this case, has_type/2 has
-% clauses for ask and tell.
+% clauses for querying and projection.
 %
 user:term_expansion((?+>(Head,Goal)), X1) :-
 	user:term_expansion((?>(Head,Goal)),X1),
@@ -826,11 +835,11 @@ test_cleanup :-
 		  cleanup(lang_query:test_cleanup) ]).
 
 test('test_gen(-)') :-
-	findall(X, ask(test_gen(X)), Xs),
+	findall(X, kb_call(test_gen(X)), Xs),
 	Xs == [1,2,3,4,5,6,7,8,9].
 
 test('(test_gen(-),test_single(+,-))') :-
-	findall(Y, ask((
+	findall(Y, kb_call((
 		test_gen(X),
 		test_single(X,Y)
 	)), Xs),
@@ -843,18 +852,18 @@ test('(test_gen(-),test_single(+,-))') :-
 	assert_true(length(Xs,9)).
 
 test('(test_gen(-),test_dual(+,-))') :-
-	findall(Y, ask((
+	findall(Y, kb_call((
 		test_gen(X),
 		test_dual(X,Y)
 	)), Xs),
 	assert_true(length(Xs,18)).
 
 test('limit(+,test_gen_inf(-))') :-
-	findall(X, limit(4,ask(test_gen_inf(X))), Xs),
+	findall(X, limit(4,kb_call(test_gen_inf(X))), Xs),
 	assert_true(length(Xs,4)).
 
 test('limit(+,(test_gen_inf(-),test_single(+,-)))') :-
-	findall(Y, limit(4,ask((
+	findall(Y, limit(4,kb_call((
 		test_gen_inf(X),
 		test_single(X,Y)
 	))), Ys),

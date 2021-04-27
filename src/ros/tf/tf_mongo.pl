@@ -9,7 +9,7 @@
 	  tf_mng_tree_lookup/3
 	]).
 
-:- use_foreign_library('libtf_plugin.so').
+:- use_foreign_library('libtf_knowrob.so').
 
 :- use_module(library('semweb/rdf_db'),
 	[ rdf_split_url/3 ]).
@@ -47,17 +47,23 @@
 % used in mongolog queries.
 :- mongolog:add_command(tf).
 
-%% tf/4
-%
+% tf/4
 lang_query:step_expand(
 		tf(ChildFrame, ParentFrame, [X,Y,Z], [QX,QY,QZ,QW]),
 		tf_raw(ChildFrame, ParentFrame, X, Y, Z, QX, QY, QZ, QW)).
 
-%% tf/2
-%
+lang_query:step_expand(
+		assert(tf(ChildFrame, ParentFrame, [X,Y,Z], [QX,QY,QZ,QW])),
+		assert(tf_raw(ChildFrame, ParentFrame, X, Y, Z, QX, QY, QZ, QW))).
+
+% tf/2
 lang_query:step_expand(
 		tf(ChildFrame, [ParentFrame, [X,Y,Z], [QX,QY,QZ,QW]]),
 		tf_raw(ChildFrame, ParentFrame, X, Y, Z, QX, QY, QZ, QW)).
+
+lang_query:step_expand(
+		assert(tf(ChildFrame, [ParentFrame, [X,Y,Z], [QX,QY,QZ,QW]])),
+		assert(tf_raw(ChildFrame, ParentFrame, X, Y, Z, QX, QY, QZ, QW))).
 
 %%
 tf_db(DB, Name) :-
@@ -96,12 +102,19 @@ tf_mng_lookup(ObjFrame, PoseData) :-
 	get_time(Now),
 	tf_mng_lookup(ObjFrame, Now, Now, PoseData, _, _).
 
+%% tf_mng_store(+ObjFrame, +PoseData, +Stamp) is det.
+%
+% Store a transform in mongo DB.
+%
+
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % % % % % trajectories
 
-%%
+%% tf_mng_trajectory(+Obj, +Begin, +End, -Trajectory) is det.
+%
+% Read all transforms associated to a frame in given time interval. 
 %
 tf_mng_trajectory(Obj,Stamp0,Stamp1,Trajectory) :-
 	rdf_split_url(_,ObjFrame,Obj),

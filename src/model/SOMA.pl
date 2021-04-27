@@ -77,7 +77,7 @@
 @license BSD
 */
 
-% TODO: how to handle tell new quality values if quality
+% TODO: how to handle assert new quality values if quality
 %		does not exist yet? --> should be done via a special predicate
 
 :- use_module(library('semweb/rdf_db'),
@@ -326,6 +326,8 @@ is_kino_dynamic_data(IO) ?+>
 % @param Format File format identifier string (i.e. the file extension).
 %
 has_kinematics_file(Obj,Identifier,Format) +>
+	new_iri(IO,soma:'KinoDynamicData'),
+	new_iri(IR,io:'DigitalResource'),
 	has_type(IO,soma:'KinoDynamicData'),
 	has_type(IR,io:'DigitalResource'),
 	triple(IO, dul:isAbout, Obj),
@@ -822,7 +824,7 @@ object_shape_type(Obj, ShapeType) ?>
 % @param FilePath the file path
 %
 object_mesh_path(Obj, FilePath) ?+>
-	% TODO: get_or_create SHA,REG in tell
+	% TODO: get_or_create SHA,REG in projection
 	holds(Obj, soma:hasShape, SHA),
 	holds(SHA, dul:hasRegion, REG),
 	holds(REG, soma:hasFilePath, FilePath),
@@ -840,7 +842,7 @@ object_mesh_path(Obj, FilePath) ?>
 % @param Col rgb color data
 % 
 object_color_rgb(OBJ, R, G, B) ?+>
-	% TODO: get_or_create COL,REG in tell
+	% TODO: get_or_create COL,REG in projection
 	holds(OBJ, soma:hasColor, COL),
 	holds(COL, dul:hasRegion, REG),
 	holds(REG, soma:hasRGBValue, term([R,G,B])),
@@ -874,7 +876,7 @@ shape_bbox(ShapeRegion, Depth, Width, Height) ?+>
 % @param Height Height of the bounding box (z-dimension)
 % 
 object_dimensions(Obj, Depth, Width, Height) ?+>
-	% TODO: get_or_create SHA,REG in tell
+	% TODO: get_or_create SHA,REG in projection
 	holds(Obj, soma:hasShape, SHA),
 	holds(SHA, dul:hasRegion, REG),
 	shape_bbox(REG, Depth, Width, Height),

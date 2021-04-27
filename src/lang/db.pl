@@ -13,7 +13,7 @@
       is_unique_name(r),
       setup_collection/2
     ]).
-/** <module> Interface for dumping knowledge and restoring it.
+/** <module> Database predicates.
 
 @author Daniel Beßler
 @license BSD
@@ -46,15 +46,6 @@ annotation_property('http://www.w3.org/2000/01/rdf-schema#comment').
 annotation_property('http://www.w3.org/2000/01/rdf-schema#seeAlso').
 annotation_property('http://www.w3.org/2000/01/rdf-schema#label').
 annotation_property('http://www.w3.org/2002/07/owl#versionInfo').
-
-%%
-is_annotation_triple(triple(_,P,_)) :-
-	once(annotation_property(P)).
-
-%%
-setup_collection(Name, Indices) :-
-	assertz(collection_data_(Name, Indices)),
-	create_indices(Name, Indices).
 
 %% remember(+Directory) is det.
 %
@@ -110,7 +101,7 @@ drop_graph(Name) :-
 
 %% is_unique_name(+Name) is semidet.
 %
-% True is Name is not the subject of any known fact.
+% True if Name is not the subject of any known fact.
 %
 is_unique_name(Name) :-
 	mng_get_db(DB, Coll, 'triples'),
@@ -146,6 +137,11 @@ auto_drop_graphs :-
 	forall(member(X,L), drop_graph(X)).
 
 :- ignore(auto_drop_graphs).
+
+%%
+setup_collection(Name, Indices) :-
+	assertz(collection_data_(Name, Indices)),
+	create_indices(Name, Indices).
 
 %% load_owl(+URL) is det.
 %
@@ -276,16 +272,18 @@ load_owl1(IRI, Triples, Scope, Graph) :-
 	%             when loading a list of triples at once.
 	%             this does not seem to occur when loading each triple
 	%             individually.
-	%lang_query:tell(TripleTerms, Scope, [graph(Graph)]),
-	%lang_query:tell(AnnotationTerms, Scope, [graph(Graph)]),
+	%kb_project(TripleTerms, Scope, [graph(Graph)]),
+	%kb_project(AnnotationTerms, Scope, [graph(Graph)]),
 	forall(
 		(	member(Term, TripleTerms)
 		;	member(Term, AnnotationTerms)
 		),
-		lang_query:tell(Term, Scope, [graph(Graph)])
+		kb_project(Term, Scope, [graph(Graph)])
 	).
 
-%% reads json data and asserts into mongodb
+%% load_json_rdf(FilePath) is semidet.
+%
+% Assert JSON data into mongo DB.
 %
 % @param FilePath - Path to the json file
 %
@@ -295,8 +293,7 @@ load_json_rdf(FilePath) :-
 	close(Stream).
 
 read_data(Stream,[]):-
-	at_end_of_stream(Stream),
-	!.
+	at_end_of_stream(Stream).
 
 read_data(Stream,[TriplesDict | Rest]):-
 	json:json_read_dict(Stream, TriplesDict),
@@ -304,13 +301,53 @@ read_data(Stream,[TriplesDict | Rest]):-
 	read_data(Stream,Rest).
 
 assert_triple_data(Triples) :-
-	term_to_atom(Triples.get(s), S),
-	term_to_atom(Triples.get(p), P),
-	term_to_atom(Triples.get(o), O),
+	is_dict(Triples),!,
+	get_dict(s, Triples, S),
+	get_dict(p, Triples, P),
+	get_dict(o, Triples, O),
+	triple_json_scope(Triples,Scope),
+	triple_json_object(O,O_value),
+	atom_string(S_atom, S),
+	atom_string(P_atom, P),
 	% TODO: also support to import scope information
-	% TODO: it would be faster to call tell only once with
+	% TODO: it would be faster to call assert only once with
 	% array of triples
-	lang_query:ask(assert(triple(S, P, O))).
+	kb_call(assert(triple(S_atom, P_atom, O_value)), Scope, _).
+
+assert_triple_data(TriplesList) :-
+	%handle case when given triples are list
+	is_list(TriplesList),!,
+	forall(member(X,TriplesList), assert_triple_data(X)).
+
+%% triple_json_object(+Dict,-O) is semidet.
+triple_json_object(Dict,O) :-
+	% if Dict is dictionary
+	is_dict(Dict),!,
+	get_dict('$numberDecimal', Dict, Json_Object),
+	(	atom(Json_Object)   -> atom_number(Json_Object,O)
+	;	string(Json_Object) -> number_string(O,Json_Object)
+	;	O is Json_Object
+	).
+
+triple_json_object(O,O).
+
+triple_json_scope(Triples,Scope) :-
+    % check if 'since' and 'until' are part of triple, if not then create universal scope(0 to Inf)
+    get_dict(since, Triples, Since),
+	get_dict(until, Triples, Until),!,
+	% check if given 'Since' and 'Until' are numbers if they are not
+	% then convert them into numbers first and then use them into scope
+	(	number(Since) -> Since_number = Since
+	;	atom_number(Since, Since_number)
+	),
+	(	number(Until) -> Until_number = Until
+	;	atom_number(Until, Until_number)
+	),
+	time_scope(Since_number, Until_number, Scope).
+
+triple_json_scope(_Triples,Scope) :-
+	% create universal scope when either of 'since' or 'until' are not provided in triple
+	universal_scope(Scope).
 
 % wrapper around load_rdf/3
 load_rdf_(URL,Triples) :-
@@ -359,6 +396,10 @@ convert_rdf_value_(literal(type(Type,V_atom)), O_typed) :-
 
 convert_rdf_value_(literal(O), string(O)) :- !.
 convert_rdf_value_(        O,  string(O)) :- !.
+
+%%
+is_annotation_triple(triple(_,P,_)) :-
+	once(annotation_property(P)).
 
 % each ontology is stored in a separate graph named
 % according to the ontology

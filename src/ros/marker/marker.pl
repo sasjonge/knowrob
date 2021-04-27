@@ -1,4 +1,4 @@
-:- module(marker_plugin,
+:- module(marker,
 	[ show_marker/2,
 	  show_marker/3,
 	  show_markers/1,
@@ -19,7 +19,7 @@
     [ current_scope/1 ]).
 :- use_module('object_marker').
 
-:- use_foreign_library('libmarker_plugin.so').
+:- use_foreign_library('libmarker_knowrob.so').
 
 :- multifile marker_factory/3.
 
@@ -101,7 +101,7 @@ show_marker(_MarkerID, _MarkerTerm, _Options) :-
 show_markers(Timepoint) :-
 	%time_scope(=<(Timepoint), >=(Timepoint), Scope),
 	%forall(
-	%	ask(is_physical_object(PO)),
+	%	kb_call(is_physical_object(PO)),
 	%	show_marker(PO, PO, [scope(Scope)])
 	%).
 	findall(Msg,
@@ -268,7 +268,7 @@ get_marker_scope(_,Scope) :-
 % notify_hook is called whenever an object changes.
 %
 %notify:notify_hook(object_changed(Obj)) :-
-%	( setting(marker_plugin:auto,true)
+%	( setting(marker:auto,true)
 %	-> show_marker(Obj, Obj, [])
 %	;  true
 %	).

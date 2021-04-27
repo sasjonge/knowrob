@@ -31,11 +31,11 @@ swrl_fire1(HeadAtom :- Body) :-
 		Rule_pl, [var('swrl:scope',_)|Vars]),
 	Rule_pl=(?>(Impl_pl,Cond_pl)),
 	findall(Fact,
-		(	lang_query:ask(Cond_pl),
+		(	kb_call(Cond_pl),
 			swrl_fact(Impl_pl, Fact)
 		),
 		Facts),
-	lang_query:tell(Facts).
+	kb_project(Facts).
 
 %%
 swrl_fact(model_RDFS:instance_of(X,Y), has_type(X,Y)) :- !.
@@ -61,7 +61,7 @@ swrl_assert1(HeadAtom :- Body) :-
 	% TODO need to support facts??
 	Rule_pl=(?>(Impl_pl,Cond_pl)),
 	comma_list(Cond_pl0,Cond_pl),
-	% expand ask rule into regular Prolog rule
+	% expand into regular Prolog rule
 	% NOTE: this also calls query_assert/1
 	expand_term(?>(Impl_pl,Cond_pl0), Expanded),
 	% finally assert another clause of instance_of or holds

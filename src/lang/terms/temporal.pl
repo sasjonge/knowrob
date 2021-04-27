@@ -31,7 +31,7 @@
 % Note that it is currently not allowed to call this predicate
 % with one of the boundaries grounded and the other not.
 % Either both boundaries must be ground or both variables.
-% If used in *tell* expressions, during/2 will scope all
+% If used in *project* expressions, during/2 will scope all
 % assertions in Statement with the interval provided.
 %
 % @param Statement A language term.
@@ -74,7 +74,7 @@ during(Statement, [Since, Until]) +>
 % since/2 is defined as an operator such that
 % queries can be written as `Statement since Instant`.
 % Instant is a unix timestamp represented as floating point number.
-% If used in *tell* expressions, since/2 will scope all
+% If used in *project* expressions, since/2 will scope all
 % assertions in Statement with an interval that begins
 % at given time instant, and whose end is not known.
 %
@@ -122,7 +122,7 @@ since(Statement, Instant) +>
 % until/2 is defined as an operator such that
 % queries can be written as `Statement until Instant`.
 % Instant is a unix timestamp represented as floating point number.
-% If used in *tell* expressions, until/2 updates the existing record of
+% If used in *project* expressions, until/2 updates the existing record of
 % Statement known to hold at time instant if any, else it
 % will create a record whose begin time is not known.
 %
@@ -130,7 +130,7 @@ since(Statement, Instant) +>
 % @param Interval A time interval, instant, or event.
 %
 until(Statement, Instant) ?>
-	% TODO tell until has unclear semantic
+	% TODO project until has unclear semantic
 	% TODO better handling of unknown since of interval
 	number(Instant),
 	% only include records that hold at instant
@@ -155,7 +155,7 @@ until(Statement, Instant) +>
 	%        is that we don't know yet when it starts.
 	%        the problem is we cannot distinguish this from records that are known
 	%        to hold since begin of time!
-	% TODO: better disable tell cases for until and since?
+	% TODO: better disable project cases for until and since?
 	pragma(time_scope(=(0), =(Instant), Scope)),
 	call_with_context(Statement,
 		[intersect_scope, scope(Scope)]).
@@ -171,75 +171,75 @@ until(Statement, Instant) +>
 		]).
 
 test('during(+Triple,+Interval)') :-
-	assert_true(lang_query:tell(
+	assert_true(kb_project(
 		triple(test:'Lea', test:hasNumber, '+493455247') during [10,34])),
-	assert_true(lang_query:ask(
+	assert_true(kb_call(
 		triple(test:'Lea', test:hasNumber, '+493455247') during [10,34])),
-	assert_true(lang_query:ask(
+	assert_true(kb_call(
 		triple(test:'Lea', test:hasNumber, '+493455247') during [14,24])),
-	assert_false(lang_query:ask(
+	assert_false(kb_call(
 		triple(test:'Lea', test:hasNumber, '+999999999') during [5,20])),
-	assert_false(lang_query:ask(
+	assert_false(kb_call(
 		triple(test:'Lea', test:hasNumber, '+493455249') during [12,20])),
-	assert_false(lang_query:ask(
+	assert_false(kb_call(
 		triple(test:'Lea', test:hasNumber, '+493455247') during [5,20])),
-	assert_false(lang_query:ask(
+	assert_false(kb_call(
 		triple(test:'Lea', test:hasNumber, '+493455247') during [34,44])).
 
 test('during(+Triple,+Overlapping)') :-
 	% assert additional interval during which a statement holds that overlaps
 	% with an existing interval
-	assert_true(lang_query:tell(
+	assert_true(kb_project(
 		triple(test:'Lea', test:hasNumber, '+493455249') during [44,84])),
-	assert_true(lang_query:tell(
+	assert_true(kb_project(
 		triple(test:'Lea', test:hasNumber, '+493455249') during [24,54])),
-	assert_true(lang_query:ask(
+	assert_true(kb_call(
 		triple(test:'Lea', test:hasNumber, '+493455249') during [34,44])),
-	assert_true(lang_query:ask(
+	assert_true(kb_call(
 		triple(test:'Lea', test:hasNumber, '+493455249') during [38,80])),
-	assert_false(lang_query:ask(
+	assert_false(kb_call(
 		triple(test:'Lea', test:hasNumber, '+493455247') during [140,240])).
 
 test('during(+Triple,[-Since,-Until])') :-
-	assert_true(lang_query:ask(
+	assert_true(kb_call(
 		triple(test:'Lea', test:hasNumber, '+493455247') during [_,_])),
-	(	lang_query:ask(
+	(	kb_call(
 			triple(test:'Lea', test:hasNumber, '+493455247') during [Since,Until])
 	->	assert_equals([Since,Until], [10.0,34.0])
 	;	true
 	).
 
 test('during(+Triple,-Interval)') :-
-	assert_true(lang_query:ask(
+	assert_true(kb_call(
 		triple(test:'Lea', test:hasNumber, '+493455247') during _)),
-	(	lang_query:ask(
+	(	kb_call(
 			triple(test:'Lea', test:hasNumber, '+493455247') during X)
 	->	assert_equals(X,[10.0,34.0])
 	;	true
 	).
 
 test('since(+Triple,+Instant)') :-
-	assert_false(lang_query:ask(
+	assert_false(kb_call(
 		triple(test:'Lea', test:hasNumber, '+499955247') since 800)),
-	assert_true(lang_query:tell(
+	assert_true(kb_project(
 		triple(test:'Lea', test:hasNumber, '+499955247') since 800)),
-	assert_true(lang_query:ask(
+	assert_true(kb_call(
 		triple(test:'Lea', test:hasNumber, '+499955247') since 800)),
-	assert_true(lang_query:ask(
+	assert_true(kb_call(
 		triple(test:'Lea', test:hasNumber, '+499955247') since 1000)),
-	assert_false(lang_query:ask(
+	assert_false(kb_call(
 		triple(test:'Lea', test:hasNumber, '+499955247') since 600)).
 
 test('until(+Triple,+Instant)') :-
-	% before tell until=inf
-	assert_true(lang_query:ask(
+	% before project until=inf
+	assert_true(kb_call(
 		triple(test:'Lea', test:hasNumber, '+499955247') until 1000)),
-	assert_true(lang_query:tell(
+	assert_true(kb_project(
 		triple(test:'Lea', test:hasNumber, '+499955247') until 900)),
-	% after tell until=900
-	assert_true(lang_query:ask(
+	% after project until=900
+	assert_true(kb_call(
 		triple(test:'Lea', test:hasNumber, '+499955247') until 900)),
-	assert_false(lang_query:ask(
+	assert_false(kb_call(
 		triple(test:'Lea', test:hasNumber, '+499955247') until 1000)).
 
 :- end_rdf_tests('lang_temporal').

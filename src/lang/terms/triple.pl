@@ -1,5 +1,16 @@
 :- module(lang_triple,
 		[ mng_triple_doc(t,-,t) ]).
+/** <module> Handling of triples in query expressions.
+
+The following predicates are supported:
+
+| Predicate            | Arguments |
+| ---                  | ---       |
+| triple/3         | ?Subject, ?Property, ?Value |
+
+@author Daniel Beßler
+@license BSD
+*/
 
 :- use_module(library('semweb/rdf_db'),
 		[ rdf_meta/1 ]).
@@ -17,7 +28,7 @@
 :- use_module(library('lang/mongolog/mongolog')).
 
 :- rdf_meta(taxonomical_property(r)).
-:- rdf_meta(must_propagate_tell(r)).
+:- rdf_meta(must_propagate_assert(r)).
 :- rdf_meta(lookup_parents_property(t,t)).
 
 %%
@@ -41,14 +52,30 @@ lang_query:step_expand(
 	!.
 
 %%
+mongolog:step_compile(assert(triple(S,P,term(O))), Ctx, Pipeline, StepVars) :-
+	% HACK: convert term(A) argument to string.
+	%       it would be better to store lists/terms directly without conversion.
+	ground(O),!,
+	( atom(O) -> Atom=O ; term_to_atom(O, Atom) ),
+	mongolog:step_compile(assert(triple(S,P,string(Atom))), Ctx, Pipeline, StepVars).
+
+mongolog:step_compile(triple(S,P,term(O)), Ctx, Pipeline, StepVars) :-
+	% HACK: convert term(A) argument to string.
+	%       it would be better to store lists/terms directly without conversion.
+	ground(O),!,
+	( atom(O) -> Atom=O ; term_to_atom(O, Atom) ),
+	mongolog:step_compile(triple(S,P,string(Atom)), Ctx, Pipeline, StepVars).
+
+%%
 mongolog:step_compile(assert(triple(S,P,O)), Ctx, Pipeline, StepVars) :-
 	% add step variables to compile context
 	triple_step_vars(triple(S,P,O), Ctx, StepVars0),
 	mongolog:add_assertion_var(StepVars0, StepVars),
 	merge_options([step_vars(StepVars)], Ctx, Ctx0),
 	% create pipeline
-	compile_tell(triple(S,P,O), Ctx0, Pipeline).
+	compile_assert(triple(S,P,O), Ctx0, Pipeline).
 
+%%
 mongolog:step_compile(triple(S,P,O), Ctx, Pipeline, StepVars) :-
 	% add step variables to compile context
 	triple_step_vars(triple(S,P,O), Ctx, StepVars),
@@ -58,10 +85,11 @@ mongolog:step_compile(triple(S,P,O), Ctx, Pipeline, StepVars) :-
 
 %%
 triple_step_vars(triple(S,P,O), Ctx, StepVars) :-
-	% FIXME: redundant with above
 	(	bagof(Var,
 			(	mongolog:goal_var([S,P,O], Ctx, Var)
 			;	mongolog:context_var(Ctx, Var)
+			% HACK: remember that variable is wrapped in term/1
+			;	(O=term(O1), var(O1), mongolog:var_key(O1, Ctx, Key), Var=[Key,term(O1)])
 			),
 			StepVars)
 	;	StepVars=[]
@@ -101,11 +129,11 @@ compile_ask(triple(S,P,O), Ctx, Pipeline) :-
 	).
 
 %%
-% tell(triple(S,P,O)) uses $lookup to find matching triples
+% assert(triple(S,P,O)) uses $lookup to find matching triples
 % with overlapping scope which are toggled to be removed in next stage.
 % then the union of their scopes is computed and used for output document.
 %
-compile_tell(triple(S,P,O), Ctx, Pipeline) :-
+compile_assert(triple(S,P,O), Ctx, Pipeline) :-
 	% add additional options to the compile context
 	extend_context(triple(S,P,O), P1, Ctx, Ctx0),
 	option(collection(Collection), Ctx0),
@@ -159,8 +187,8 @@ compile_tell(triple(S,P,O), Ctx, Pipeline) :-
 		;	mongolog:add_assertions(string('$next'), Collection, Step)
 		% add merged triple document to triples array
 		;	mongolog:add_assertion(TripleDoc, Collection, Step)
-		;	(	once(must_propagate_tell(P)),
-				propagate_tell(S, Ctx0, Step)
+		;	(	once(must_propagate_assert(P)),
+				propagate_assert(S, Ctx0, Step)
 			)
 		),
 		Pipeline
@@ -461,7 +489,7 @@ lookup_parents(Triple, Context, Step) :-
 	).
 
 %%
-propagate_tell(S, Context, Step) :-
+propagate_assert(S, Context, Step) :-
 	memberchk(collection(Collection), Context),
 	mng_typed_value(S,TypedS),
 	% the inner lookup matches documents with S in o*
@@ -486,14 +514,16 @@ propagate_tell(S, Context, Step) :-
 	).
 
 %% the properties for which assertions must be propagated
-must_propagate_tell(rdfs:subClassOf).
-must_propagate_tell(rdfs:subPropertyOf).
+must_propagate_assert(rdfs:subClassOf).
+must_propagate_assert(rdfs:subPropertyOf).
 
 %%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%% triple/3 query pattern
 %%%%%%%%%%%%%%%%%%%%%%%
 
 %% mng_triple_doc(+Triple, -Doc, +Context) is semidet.
+%
+% Translate a triple term into a mongo query document.
 %
 mng_triple_doc(triple(S,P,V), Doc, Context) :-
 	%% read options
