@@ -83,7 +83,7 @@ EXPOSE 1111 9090
 USER ros
 WORKDIR /home/ros/src
 RUN /usr/bin/python /opt/ros/melodic/bin/catkin_init_workspace
-RUN echo $PWD
+
 RUN if [ "x$LOCAL_BUILD" = "x0" ] ; then \
     rm -rf /home/ros/src/* && \
     git clone https://github.com/knowrob/knowrob.git && \
