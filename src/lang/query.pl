@@ -12,7 +12,9 @@
       kb_drop_rule(t),
       kb_expand(t,-),
       is_callable_with(?,t),  % ?Backend, :Goal
-      call_with(?,t,+)        % +Backend, :Goal, +Options
+      call_with(?,t,+) ,       % +Backend, :Goal, +Options
+      ask(t),      % +Statement, NOTE: deprecated
+      ask(t,t)    % +Statement, +Scope, NOTE: deprecated
     ]).
 /** <module> Query aggregation.
 
@@ -166,6 +168,41 @@ term_keys_variables_1([X|Xs], [[Key,X]|Ys]) :-
 	term_to_atom(X,Atom),
 	atom_concat('v',Atom,Key),
 	term_keys_variables_1(Xs, Ys).
+
+%% ask(+Statement) is nondet.
+%
+% Same as ask/2 with wildcard scope.
+%
+% @deprecated
+%
+% @param Statement a statement term.
+%
+ask(Statement) :-
+  kb_call(Statement).
+
+%% ask(+Statement,+Scope) is nondet.
+%
+% True if Statement term holds within the requested scope.
+% Scope is a term `[Options,QueryScope]->FactScope` where QueryScope
+% is the scope requested, and FactScope the actual scope
+% of the statement being true.
+% Statement can also be a list of statements.
+%
+% ask/2 is a multifile predicate. Meaning that clauses may be
+% decalared in multiple files.
+% Specifically, declaring a rule using the ask operator `?>`,
+% or the ask-tell operator `?+>` will generate a clause of the ask rule.
+%
+% @deprecated
+%
+% @param Statement a statement term.
+% @param Scope the scope of the statement.
+%
+ask(Statement,[Options,QScope]) :-
+	kb_call(Statement, QScope, _, Options).
+
+ask([X|Xs],QScope->FScope) :-
+	kb_call([X|Xs], QScope, FScope, []).
 
 %% kb_project(+Statement) is nondet.
 %

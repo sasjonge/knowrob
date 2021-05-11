@@ -533,6 +533,16 @@ must_propagate_assert(rdfs:subPropertyOf).
 %
 % Query values of a property on some subject in the triple DB.
 %
+% The property can be wrapped in one of several options:
+% 
+% - transitive/1 indicates that the property is transitive
+% - reflexive/1 indicates that the property is reflexive
+% - pstar/1 binds the property to one of the values in the p* field in the mongodb
+%
+% The value can be wrapped in one of several options:
+%
+% - ostar/1 binds the property to one of the values in the o* field in the mongodb
+%
 % @param Subject The subject of a triple.
 % @param Property The predicate of a triple.
 % @param Value The object of a triple.
