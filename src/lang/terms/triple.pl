@@ -1,7 +1,7 @@
 :- module(lang_triple,
 		[ 
 			mng_triple_doc(t,-,t),
-			triple(r,r,t) 
+			triple(t,t,t) 
 		]).
 /** <module> Handling of triples in query expressions.
 
