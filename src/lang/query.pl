@@ -171,7 +171,7 @@ term_keys_variables_1([X|Xs], [[Key,X]|Ys]) :-
 
 %% ask(+Statement) is nondet.
 %
-% Same as ask/2 with wildcard scope.
+% Same as kb_call/1
 %
 % @deprecated
 %
@@ -182,27 +182,15 @@ ask(Statement) :-
 
 %% ask(+Statement,+Scope) is nondet.
 %
-% True if Statement term holds within the requested scope.
-% Scope is a term `[Options,QueryScope]->FactScope` where QueryScope
-% is the scope requested, and FactScope the actual scope
-% of the statement being true.
-% Statement can also be a list of statements.
-%
-% ask/2 is a multifile predicate. Meaning that clauses may be
-% decalared in multiple files.
-% Specifically, declaring a rule using the ask operator `?>`,
-% or the ask-tell operator `?+>` will generate a clause of the ask rule.
+% Same as kb_call/4 with empty options list and FScope as wildcard.
 %
 % @deprecated
 %
 % @param Statement a statement term.
 % @param Scope the scope of the statement.
 %
-ask(Statement,[Options,QScope]) :-
-	kb_call(Statement, QScope, _, Options).
-
-ask([X|Xs],QScope->FScope) :-
-	kb_call([X|Xs], QScope, FScope, []).
+ask(Statement,QScope) :-
+	kb_call(Statement, QScope, _, []).
 
 %% kb_project(+Statement) is nondet.
 %
