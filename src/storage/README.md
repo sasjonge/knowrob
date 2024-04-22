@@ -13,8 +13,8 @@ Currently, KnowRob supports data backend implementations in the C++ and Python l
 
 The following queryable backends are available in KnowRob:
 
-- \subpage redland_backend
-- \subpage mongodb_backend
+- [redland_backend](src/storage/redland/README.md)
+- [mongodb_backend](src/storage/mongo/README.md)
 - \subpage PrologBackend
 
 Which storages are initialized is determined through configuration parameters.

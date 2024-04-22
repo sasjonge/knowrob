@@ -5,3 +5,15 @@ Note that only storage types that support context nodes can be used, as this is 
 in order to store the "origin" of triples.
 Additional contextual parameters (e.g. time, confidence, etc.) are not supported by this backend,
 and thus need to be handled through reification (which is done automatically by KnowRob).
+
+An example for the configuration of the Redland backend is shown below:
+
+```json
+  "data-backends": [
+    {
+      "type": "Redland",
+      "name": "redland",
+      "read-only": false
+    }
+  ],
+```
