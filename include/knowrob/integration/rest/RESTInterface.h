@@ -1,0 +1,8 @@
+//
+// Created by sascha on 03.05.24.
+//
+
+#ifndef KNOWROB_RESTINTERFACE_H
+#define KNOWROB_RESTINTERFACE_H
+
+#endif //KNOWROB_RESTINTERFACE_H

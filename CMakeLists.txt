@@ -323,6 +323,16 @@ target_link_libraries(knowrob-terminal
         knowrob)
 install(TARGETS knowrob-terminal RUNTIME DESTINATION bin)
 
+add_executable(knowrob-rest src/integration/rest/RESTInterface.cpp
+        src/integration/rest/RESTInterface.cpp)
+target_link_libraries(knowrob-terminal
+        ${KNOWROB_LIBRARIES}
+        Boost::program_options
+        Boost::serialization
+        ${Boost_Python_COMPONENT}
+        knowrob-rest)
+install(TARGETS knowrob-rest RUNTIME DESTINATION bin)
+
 ##############
 ########## Python module
 ##############
